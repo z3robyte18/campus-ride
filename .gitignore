@@ -1,16 +1,5 @@
-# dependencies
 node_modules/
-
-# env files
 .env
-.env.local
-
-# build
 dist/
 build/
-
-# logs
-npm-debug.log*
-
-# mac
 .DS_Store
