@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API = axios.create({ baseURL: '/api' });
+const API = axios.create({
+  baseURL: 'https://campus-ride-backend-9n9m.onrender.com/api'
+});
 
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');

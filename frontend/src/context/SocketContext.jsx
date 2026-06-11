@@ -11,7 +11,7 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (user) {
-      socketRef.current = io('http://localhost:5001', { transports: ['websocket'] });
+      socketRef.current = io('https://campus-ride-backend-9n9m.onrender.com', { transports: ['websocket'] });
       socketRef.current.on('connect', () => {
         setConnected(true);
         socketRef.current.emit('register', user._id);
