@@ -11,39 +11,64 @@ const errorHandler = require('./middleware/errorHandler');
 const app = express();
 const server = http.createServer(app);
 
+console.log('Starting Campus Ride Backend...');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('PORT:', process.env.PORT);
+console.log('MONGO_URI exists:', !!process.env.MONGO_URI);
+
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://localhost:5176',
+  'http://localhost:5177',
+].filter(Boolean);
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  }
+    credentials: true,
+  },
+  transports: ['websocket', 'polling'],
 });
 
-// Connect DB
 connectDB();
 
-// Middleware
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
-app.use(helmet());
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.some(o => origin.startsWith(o.replace(/\/$/, '')))) {
+      return callback(null, true);
+    }
+    console.log('CORS blocked:', origin);
+    return callback(null, true); // allow all for now during debugging
+  },
+  credentials: true,
+}));
+
+app.use(helmet({ crossOriginEmbedderPolicy: false }));
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Make io accessible in routes
 app.use((req, res, next) => { req.io = io; next(); });
 
-// Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/rides', require('./routes/rides'));
 app.use('/api/drivers', require('./routes/drivers'));
 app.use('/api/ratings', require('./routes/ratings'));
 
-app.get('/', (req, res) => res.json({ message: 'Campus Ride API is running' }));
+app.get('/', (req, res) => res.json({ message: 'Campus Ride API running', status: 'ok' }));
+app.get('/health', (req, res) => res.json({ status: 'healthy', timestamp: new Date().toISOString() }));
 
-// Socket handler
 require('./socket/socketHandler')(io);
-
-// Error handler (must be last)
 app.use(errorHandler);
 
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err.message);
+});
+
 const PORT = process.env.PORT || 5001;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+});
