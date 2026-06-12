@@ -1,7 +1,7 @@
 const Ride = require('../models/Ride');
 const User = require('../models/User');
 
-const calculateFare = (distance) => Math.max(10, Math.round(distance * 5));
+const calculateFare = (distance) => Math.max(10, Math.round(distance * 500));
 
 exports.requestRide = async (req, res) => {
   try {
@@ -21,10 +21,21 @@ exports.requestRide = async (req, res) => {
 
 exports.getAvailableRides = async (req, res) => {
   try {
+    const now = new Date();
+    // Show non-scheduled rides always
+    // Show scheduled rides only within 15 min window
     const rides = await Ride.find({ status: 'requested', driver: null })
       .populate('passenger', 'name phone averageRating')
       .sort({ createdAt: -1 });
-    res.json(rides);
+
+    const visible = rides.filter(ride => {
+      if (!ride.isScheduled) return true;
+      const scheduled = new Date(ride.scheduledTime);
+      const diffMinutes = (scheduled - now) / 60000;
+      return diffMinutes <= 15; // only show if within 15 min
+    });
+
+    res.json(visible);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -37,11 +48,22 @@ exports.acceptRide = async (req, res) => {
     if (ride.status !== 'requested') return res.status(400).json({ message: 'Ride no longer available' });
     if (ride.driver) return res.status(400).json({ message: 'Ride already accepted' });
 
+    // Block early acceptance of scheduled rides (allow 15 min before scheduled time)
+    if (ride.isScheduled && ride.scheduledTime) {
+      const now = new Date();
+      const scheduledTime = new Date(ride.scheduledTime);
+      const diffMinutes = (scheduledTime - now) / 60000;
+      if (diffMinutes > 15) {
+        return res.status(400).json({
+          message: `Scheduled for ${scheduledTime.toLocaleString('en-IN')}. Accept within 15 min of that time.`,
+          scheduledTime: ride.scheduledTime,
+        });
+      }
+    }
+
     ride.driver = req.user._id;
     ride.status = 'accepted';
     await ride.save();
-
-    // Mark driver as busy
     await User.findByIdAndUpdate(req.user._id, { isBusy: true });
 
     const populated = await ride.populate([
@@ -59,6 +81,19 @@ exports.updateRideStatus = async (req, res) => {
     const { status } = req.body;
     const ride = await Ride.findById(req.params.id);
     if (!ride) return res.status(404).json({ message: 'Ride not found' });
+
+    // Block starting a scheduled ride before its time
+    if (status === 'in_progress' && ride.isScheduled && ride.scheduledTime) {
+      const now = new Date();
+      const scheduledTime = new Date(ride.scheduledTime);
+      const diffMinutes = (scheduledTime - now) / 60000;
+      if (diffMinutes > 5) {
+        return res.status(400).json({
+          message: `Cannot start this ride yet. Scheduled for ${scheduledTime.toLocaleString('en-IN')}.`,
+          scheduledTime: ride.scheduledTime,
+        });
+      }
+    }
 
     ride.status = status;
     if (status === 'in_progress') ride.startTime = new Date();
@@ -141,7 +176,11 @@ exports.getAnalytics = async (req, res) => {
     const popularLocations = Object.entries(locationCounts)
       .sort((a, b) => b[1] - a[1]).slice(0, 5)
       .map(([name, count]) => ({ name, count }));
-    res.json({ hourCounts, popularLocations, peakHour: hourCounts.indexOf(Math.max(...hourCounts)), totalRides: rides.length });
+    res.json({
+      hourCounts, popularLocations,
+      peakHour: hourCounts.indexOf(Math.max(...hourCounts)),
+      totalRides: rides.length
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

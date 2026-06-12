@@ -6,19 +6,14 @@ const generateToken = (id) =>
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role, phone, vehicleNumber, licenseNumber, vehicleType } = req.body;
+    const { name, email, password, role, phone, vehicleNumber, licenseNumber, vehicleType, upiId } = req.body;
     const exists = await User.findOne({ email });
     if (exists) return res.status(400).json({ message: 'Email already registered' });
-
-    const user = await User.create({
-      name, email, password, role, phone,
-      vehicleNumber, licenseNumber, vehicleType,
-    });
-
+    const user = await User.create({ name, email, password, role, phone, vehicleNumber, licenseNumber, vehicleType, upiId });
     res.status(201).json({
       _id: user._id, name: user.name, email: user.email,
       role: user.role, token: generateToken(user._id),
-      isOnline: user.isOnline, averageRating: user.averageRating,
+      isOnline: user.isOnline, averageRating: user.averageRating, upiId: user.upiId,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -31,12 +26,12 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user || !(await user.matchPassword(password)))
       return res.status(401).json({ message: 'Invalid email or password' });
-
     res.json({
       _id: user._id, name: user.name, email: user.email,
       role: user.role, token: generateToken(user._id),
       isOnline: user.isOnline, averageRating: user.averageRating,
-      totalRides: user.totalRides,
+      totalRides: user.totalRides, upiId: user.upiId,
+      vehicleNumber: user.vehicleNumber, vehicleType: user.vehicleType,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

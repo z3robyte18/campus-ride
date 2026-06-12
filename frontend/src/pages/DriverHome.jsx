@@ -5,6 +5,7 @@ import { driverAPI, rideAPI } from '../services/api';
 import RideRequests from '../components/driver/RideRequests';
 import ActiveRide from '../components/driver/ActiveRide';
 import DriverStats from '../components/driver/DriverStats';
+import UpiSettings from '../components/driver/UpiSettings';
 import LiveMap from '../components/map/LiveMap';
 import PaymentHistory from './PaymentHistory';
 import toast from 'react-hot-toast';
@@ -81,39 +82,40 @@ const DriverHome = () => {
             onClick={toggleOnline}
             disabled={isBusy}
             className={`online-toggle ${isOnline ? 'online' : 'offline'}`}
-            title={isBusy ? 'Complete current ride to go offline' : ''}
           >
             {isOnline ? '🟢 Online' : '🔴 Offline'}
           </button>
           <span className="status-chip" style={{ background: statusColor + '22', color: statusColor }}>
             ● {statusLabel}
           </span>
+          {!user?.upiId && (
+            <span
+              className="upi-warning-chip"
+              onClick={() => setTab('upi')}
+              style={{ cursor: 'pointer' }}
+            >
+              ⚠️ Link UPI
+            </span>
+          )}
         </div>
       </div>
 
-      <div className="tabs">
-        <button className={tab === 'requests' ? 'tab active' : 'tab'} onClick={() => setTab('requests')}>
-          📥 Requests
-        </button>
+      <div className="tabs" style={{ flexWrap: 'wrap' }}>
+        <button className={tab === 'requests' ? 'tab active' : 'tab'} onClick={() => setTab('requests')}>📥 Requests</button>
         {activeRide && (
           <button className={tab === 'active' ? 'tab active' : 'tab'} onClick={() => setTab('active')}>
             🚗 Active {isBusy ? '🟡' : ''}
           </button>
         )}
-        <button className={tab === 'stats' ? 'tab active' : 'tab'} onClick={() => setTab('stats')}>
-          📊 Stats
+        <button className={tab === 'stats' ? 'tab active' : 'tab'} onClick={() => setTab('stats')}>📊 Stats</button>
+        <button className={tab === 'payments' ? 'tab active' : 'tab'} onClick={() => setTab('payments')}>💳 Payments</button>
+        <button className={`tab ${tab === 'upi' ? 'active' : ''} ${!user?.upiId ? 'tab-warn' : ''}`} onClick={() => setTab('upi')}>
+          📱 UPI {!user?.upiId ? '⚠️' : '✅'}
         </button>
-        <button className={tab === 'payments' ? 'tab active' : 'tab'} onClick={() => setTab('payments')}>
-          💳 Payments
-        </button>
-        <button className={tab === 'map' ? 'tab active' : 'tab'} onClick={() => setTab('map')}>
-          🗺️ Map
-        </button>
+        <button className={tab === 'map' ? 'tab active' : 'tab'} onClick={() => setTab('map')}>🗺️ Map</button>
       </div>
 
-      {tab === 'requests' && !activeRide && (
-        <RideRequests onAccept={handleAccept} isOnline={isOnline} />
-      )}
+      {tab === 'requests' && !activeRide && <RideRequests onAccept={handleAccept} isOnline={isOnline} />}
       {tab === 'requests' && activeRide && (
         <div className="card">
           <p>You have an active ride. Complete it before accepting new requests.</p>
@@ -122,11 +124,10 @@ const DriverHome = () => {
           </button>
         </div>
       )}
-      {tab === 'active' && activeRide && (
-        <ActiveRide ride={activeRide} onUpdate={handleUpdate} />
-      )}
+      {tab === 'active' && activeRide && <ActiveRide ride={activeRide} onUpdate={handleUpdate} />}
       {tab === 'stats' && <DriverStats />}
       {tab === 'payments' && <PaymentHistory />}
+      {tab === 'upi' && <UpiSettings />}
       {tab === 'map' && <LiveMap drivers={[]} activeRide={activeRide} />}
     </div>
   );

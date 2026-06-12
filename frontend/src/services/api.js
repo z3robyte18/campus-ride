@@ -1,8 +1,6 @@
 import axios from 'axios';
 
-const API = axios.create({
-  baseURL: 'https://campus-ride-backend-9n9m.onrender.com/api'
-});
+const API = axios.create({ baseURL: '/api' });
 
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
@@ -33,6 +31,8 @@ export const driverAPI = {
   updateLocation: (data) => API.put('/drivers/location', data),
   getOnlineDrivers: () => API.get('/drivers/online'),
   getStats: () => API.get('/drivers/stats'),
+  updateUPI: (upiId) => API.put('/drivers/upi', { upiId }),
+  getPublicInfo: (id) => API.get(`/drivers/${id}/public`),
 };
 
 export const ratingAPI = {

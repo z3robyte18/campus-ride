@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema({
   vehicleNumber: { type: String },
   vehicleType: { type: String, default: 'e-rickshaw' },
   licenseNumber: { type: String },
+  upiId: { type: String, default: '' },
   isVerified: { type: Boolean, default: false },
   isOnline: { type: Boolean, default: false },
   isBusy: { type: Boolean, default: false },
