@@ -10,15 +10,17 @@ import PaymentHistory from './PaymentHistory';
 import toast from 'react-hot-toast';
 
 const ACTIVE_STATUSES = ['requested', 'accepted', 'in_progress'];
-  const SHOW_STATUSES = [
+
+const SHOW_STATUSES = [
   'requested',
   'accepted',
   'in_progress',
   'completed',
   'cancelled'
- ];
+];
+
+const PassengerHome = () => {
   const [dismissedRideId, setDismissedRideId] = useState(null);
-  const PassengerHome = () => {
   const { user } = useAuth();
   const [activeRide, setActiveRide] = useState(null);
   const [driverLocation, setDriverLocation] = useState(null);
@@ -70,9 +72,9 @@ const ACTIVE_STATUSES = ['requested', 'accepted', 'in_progress'];
 
   // Initial load
   useEffect(() => {
-    refreshActiveRide();
-    refreshDrivers();
-  }, []);
+  refreshActiveRide();
+  refreshDrivers();
+}, [refreshActiveRide]);
 
   // Polling fallback every 8 seconds
   useEffect(() => {
