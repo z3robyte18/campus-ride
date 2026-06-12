@@ -10,7 +10,13 @@ import PaymentHistory from './PaymentHistory';
 import toast from 'react-hot-toast';
 
 const ACTIVE_STATUSES = ['requested', 'accepted', 'in_progress'];
-const SHOW_STATUSES = ['requested', 'accepted', 'in_progress'];
+const SHOW_STATUSES = [
+  'requested',
+  'accepted',
+  'in_progress',
+  'completed',
+  'cancelled'
+];
 
 const PassengerHome = () => {
   const { user } = useAuth();
@@ -78,27 +84,22 @@ const PassengerHome = () => {
   const ride = payload?.ride || payload;
   if (!ride || !ride._id) return;
 
-  // Ride completed
   if (ride.status === 'completed') {
-    toast.success('✅ Ride completed!');
+    toast.success('✅ Ride completed! Please rate your driver.');
     refreshDrivers();
 
-    setActiveRide(null);
-    setDriverLocation(null);
+    setActiveRide(ride); // keep completed ride visible
     return;
   }
 
-  // Ride cancelled
   if (ride.status === 'cancelled') {
     toast.error('Ride was cancelled.');
     refreshDrivers();
 
-    setActiveRide(null);
-    setDriverLocation(null);
+    setActiveRide(ride); // keep cancelled ride visible
     return;
   }
 
-  // Ride started
   if (ride.status === 'in_progress') {
     toast('🛺 Your ride has started!', { icon: '🚀' });
   }
