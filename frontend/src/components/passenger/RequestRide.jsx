@@ -45,6 +45,9 @@ const RequestRide = ({ onRideRequested }) => {
   const [onlineDrivers, setOnlineDrivers] = useState([]);
   const [estimatedFare, setEstimatedFare] = useState(null);
   const [estimatedDist, setEstimatedDist] = useState(null);
+  const [scheduleDate, setScheduleDate] = useState('');
+const [scheduleTime, setScheduleTime] = useState('');
+const [isScheduled, setIsScheduled] = useState(false);
   const { emit } = useSocket();
 
   useEffect(() => {
@@ -82,11 +85,23 @@ const RequestRide = ({ onRideRequested }) => {
     setLoading(true);
     try {
       const res = await rideAPI.requestRide({
-        pickupLocation: { name: pickupObj.name, lat: pickupObj.lat, lng: pickupObj.lng },
-        destination: { name: destObj.name, lat: destObj.lat, lng: destObj.lng },
-        distance: Math.round(distance * 100) / 100,
-        paymentMethod,
-      });
+  pickupLocation: {
+    name: pickupObj.name,
+    lat: pickupObj.lat,
+    lng: pickupObj.lng
+  },
+  destination: {
+    name: destObj.name,
+    lat: destObj.lat,
+    lng: destObj.lng
+  },
+  distance: Math.round(distance * 100) / 100,
+  paymentMethod,
+
+  scheduledRide: isScheduled,
+  scheduledDate: scheduleDate,
+  scheduledTime: scheduleTime
+});
       emit('ride:new_request', res.data);
       toast.success('Ride requested! Looking for drivers...');
       onRideRequested(res.data);
@@ -96,7 +111,25 @@ const RequestRide = ({ onRideRequested }) => {
       setLoading(false);
     }
   };
-
+  const timeSlots = [
+  '06:00 AM',
+  '07:00 AM',
+  '08:00 AM',
+  '09:00 AM',
+  '10:00 AM',
+  '11:00 AM',
+  '12:00 PM',
+  '01:00 PM',
+  '02:00 PM',
+  '03:00 PM',
+  '04:00 PM',
+  '05:00 PM',
+  '06:00 PM',
+  '07:00 PM',
+  '08:00 PM',
+  '09:00 PM',
+  '10:00 PM'
+];
   const availableCount = onlineDrivers.filter(d => !d.isBusy).length;
 
   return (
@@ -166,6 +199,59 @@ const RequestRide = ({ onRideRequested }) => {
             </button>
           </div>
         </div>
+        <div className="form-group">
+  <label>📅 Ride Type</label>
+
+  <div className="payment-method-toggle">
+    <button
+      type="button"
+      className={`method-toggle-btn ${!isScheduled ? 'active' : ''}`}
+      onClick={() => setIsScheduled(false)}
+    >
+      Ride Now
+    </button>
+
+    <button
+      type="button"
+      className={`method-toggle-btn ${isScheduled ? 'active' : ''}`}
+      onClick={() => setIsScheduled(true)}
+    >
+      Schedule Ride
+    </button>
+  </div>
+</div>
+
+{isScheduled && (
+  <>
+    <div className="form-group">
+      <label>📅 Select Date</label>
+
+      <input
+        type="date"
+        value={scheduleDate}
+        min={new Date().toISOString().split('T')[0]}
+        onChange={(e) => setScheduleDate(e.target.value)}
+      />
+    </div>
+
+    <div className="form-group">
+      <label>⏰ Select Time</label>
+
+      <select
+        value={scheduleTime}
+        onChange={(e) => setScheduleTime(e.target.value)}
+      >
+        <option value="">Choose Time Slot</option>
+
+        {timeSlots.map(slot => (
+          <option key={slot} value={slot}>
+            {slot}
+          </option>
+        ))}
+      </select>
+    </div>
+  </>
+)}
 
         <button type="submit" className="btn-primary full"
           disabled={loading || availableCount === 0}>
@@ -173,7 +259,9 @@ const RequestRide = ({ onRideRequested }) => {
             ? 'Finding driver...'
             : availableCount === 0
               ? 'No drivers available'
-              : 'Request Ride 🛺'}
+              : isScheduled
+  ? 'Schedule Ride 📅'
+  : 'Request Ride 🛺'}
         </button>
       </form>
     </div>
