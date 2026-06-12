@@ -3,6 +3,10 @@
     {
       "source": "/api/(.*)",
       "destination": "https://campus-ride-backend-9n9m.onrender.com/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
