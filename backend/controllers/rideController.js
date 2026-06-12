@@ -1,7 +1,6 @@
 const Ride = require('../models/Ride');
 const User = require('../models/User');
 
-// Campus fare: short = ₹10, medium = ₹20, long = ₹30
 const calculateFare = (distance) => {
   if (distance <= 0.5) return 10;
   if (distance <= 1.0) return 20;
@@ -96,7 +95,7 @@ exports.updateRideStatus = async (req, res) => {
     await ride.save();
     const populated = await ride.populate([
       { path: 'passenger', select: 'name phone' },
-      { path: 'driver', select: 'name phone vehicleNumber vehicleType' }
+      { path: 'driver', select: 'name phone vehicleNumber vehicleType averageRating' }
     ]);
     res.json(populated);
   } catch (err) {
@@ -119,15 +118,40 @@ exports.getMyRides = async (req, res) => {
   }
 };
 
+// KEY FIX — also return recently completed rides so passenger can rate them
 exports.getActiveRide = async (req, res) => {
   try {
-    const query = req.user.role === 'passenger'
-      ? { passenger: req.user._id, status: { $in: ['requested', 'accepted', 'in_progress'] } }
-      : { driver: req.user._id, status: { $in: ['accepted', 'in_progress'] } };
-    const ride = await Ride.findOne(query)
-      .populate('passenger', 'name phone')
-      .populate('driver', 'name phone vehicleNumber vehicleType averageRating currentLocation');
-    res.json(ride);
+    if (req.user.role === 'passenger') {
+      // First check for truly active ride
+      let ride = await Ride.findOne({
+        passenger: req.user._id,
+        status: { $in: ['requested', 'accepted', 'in_progress'] }
+      })
+        .populate('passenger', 'name phone')
+        .populate('driver', 'name phone vehicleNumber vehicleType averageRating currentLocation');
+
+      // If no active ride, check for a recently completed ride (within last 10 min) that hasn't been rated
+      if (!ride) {
+        const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
+        ride = await Ride.findOne({
+          passenger: req.user._id,
+          status: 'completed',
+          endTime: { $gte: tenMinAgo },
+        })
+          .populate('passenger', 'name phone')
+          .populate('driver', 'name phone vehicleNumber vehicleType averageRating')
+          .sort({ endTime: -1 });
+      }
+      return res.json(ride);
+    } else {
+      const ride = await Ride.findOne({
+        driver: req.user._id,
+        status: { $in: ['accepted', 'in_progress'] }
+      })
+        .populate('passenger', 'name phone')
+        .populate('driver', 'name phone vehicleNumber vehicleType averageRating currentLocation');
+      return res.json(ride);
+    }
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

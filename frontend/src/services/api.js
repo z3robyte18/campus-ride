@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API = axios.create({ baseURL: '/api' });
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+
+const API = axios.create({ baseURL: `${BACKEND_URL}/api` });
 
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
@@ -38,6 +40,7 @@ export const driverAPI = {
 export const ratingAPI = {
   submit: (data) => API.post('/ratings', data),
   getDriverRatings: (id) => API.get(`/ratings/driver/${id}`),
+  checkRating: (rideId) => API.get(`/ratings/check/${rideId}`),
 };
 
 export default API;

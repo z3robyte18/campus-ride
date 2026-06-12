@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { rideAPI, driverAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +9,9 @@ import LiveMap from '../components/map/LiveMap';
 import PaymentHistory from './PaymentHistory';
 import toast from 'react-hot-toast';
 
+const ACTIVE_STATUSES = ['requested', 'accepted', 'in_progress'];
+const SHOW_STATUSES = ['requested', 'accepted', 'in_progress', 'completed', 'cancelled'];
+
 const PassengerHome = () => {
   const { user } = useAuth();
   const [activeRide, setActiveRide] = useState(null);
@@ -16,6 +19,7 @@ const PassengerHome = () => {
   const [onlineDrivers, setOnlineDrivers] = useState([]);
   const [tab, setTab] = useState('book');
   const { socket, connected } = useSocket();
+  const pollRef = useRef(null);
 
   const refreshDrivers = useCallback(() => {
     driverAPI.getOnlineDrivers()
@@ -25,7 +29,23 @@ const PassengerHome = () => {
 
   const refreshActiveRide = useCallback(() => {
     rideAPI.getActiveRide()
-      .then(res => setActiveRide(res.data || null))
+      .then(res => {
+        if (res.data) {
+          setActiveRide(prev => {
+            // Don't overwrite if user already dismissed rating
+            if (prev?._id === res.data._id && prev?.status === 'completed' && res.data.status === 'completed') {
+              return prev;
+            }
+            return res.data;
+          });
+        } else {
+          // Only clear if there's no ride in display state
+          setActiveRide(prev => {
+            if (prev && ACTIVE_STATUSES.includes(prev.status)) return null;
+            return prev;
+          });
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -35,61 +55,85 @@ const PassengerHome = () => {
     refreshDrivers();
   }, []);
 
-  // Poll every 10 seconds as fallback when socket events might be missed
+  // Polling fallback every 8 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
+    pollRef.current = setInterval(() => {
       refreshActiveRide();
       refreshDrivers();
-    }, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    }, 8000);
+    return () => clearInterval(pollRef.current);
+  }, [refreshActiveRide, refreshDrivers]);
 
-  // Socket listeners — re-register whenever socket connects
+  // Socket event listeners
   useEffect(() => {
     if (!socket) return;
 
-    const handleRideAccepted = (ride) => {
+    const onRideAccepted = (ride) => {
       setActiveRide(ride);
-      toast.success('Driver accepted your ride! 🎉');
+      toast.success('🎉 Driver accepted your ride!');
       refreshDrivers();
     };
 
-    const handleStatusUpdate = ({ ride }) => {
-      if (!ride) return;
+    const onStatusUpdate = (payload) => {
+      // payload can be { ride } or the ride object directly
+      const ride = payload?.ride || payload;
+      if (!ride || !ride._id) return;
+
       setActiveRide(ride);
+
       if (ride.status === 'completed') {
-        toast.success('Ride completed! Please rate your driver. ⭐');
+        toast.success('✅ Ride completed! Please rate your driver.');
         refreshDrivers();
       }
       if (ride.status === 'cancelled') {
         toast.error('Ride was cancelled.');
         refreshDrivers();
       }
+      if (ride.status === 'in_progress') {
+        toast('🛺 Your ride has started!', { icon: '🚀' });
+      }
     };
 
-    const handleDriverLocation = ({ lat, lng }) => {
+    const onDriverLocation = ({ lat, lng }) => {
       setDriverLocation({ lat, lng });
     };
 
-    const handleDriverStatusUpdate = () => {
+    const onDriverStatusUpdate = () => {
       refreshDrivers();
     };
 
-    socket.on('ride:accepted', handleRideAccepted);
-    socket.on('ride:status_update', handleStatusUpdate);
-    socket.on('driver:location', handleDriverLocation);
-    socket.on('driver:status_update', handleDriverStatusUpdate);
+    const onRideCancelled = ({ rideId }) => {
+      setActiveRide(prev => {
+        if (prev?._id === rideId) return { ...prev, status: 'cancelled' };
+        return prev;
+      });
+      toast.error('Your ride was cancelled by the driver.');
+      refreshDrivers();
+    };
+
+    socket.on('ride:accepted', onRideAccepted);
+    socket.on('ride:status_update', onStatusUpdate);
+    socket.on('driver:location', onDriverLocation);
+    socket.on('driver:status_update', onDriverStatusUpdate);
+    socket.on('ride:cancelled', onRideCancelled);
 
     return () => {
-      socket.off('ride:accepted', handleRideAccepted);
-      socket.off('ride:status_update', handleStatusUpdate);
-      socket.off('driver:location', handleDriverLocation);
-      socket.off('driver:status_update', handleDriverStatusUpdate);
+      socket.off('ride:accepted', onRideAccepted);
+      socket.off('ride:status_update', onStatusUpdate);
+      socket.off('driver:location', onDriverLocation);
+      socket.off('driver:status_update', onDriverStatusUpdate);
+      socket.off('ride:cancelled', onRideCancelled);
     };
-  }, [socket, connected]); // re-run when socket or connected changes
+  }, [socket, connected]);
 
-  const activeStatuses = ['requested', 'accepted', 'in_progress'];
-  const hasActiveRide = activeRide && activeStatuses.includes(activeRide.status);
+  // Dismiss completed/cancelled ride — go back to booking
+  const handleDismissRide = () => {
+    setActiveRide(null);
+    setDriverLocation(null);
+  };
+
+  const showRideStatus = activeRide && SHOW_STATUSES.includes(activeRide.status);
+  const isActiveRide = activeRide && ACTIVE_STATUSES.includes(activeRide.status);
   const availableCount = onlineDrivers.filter(d => !d.isBusy).length;
   const busyCount = onlineDrivers.filter(d => d.isBusy).length;
 
@@ -101,52 +145,57 @@ const PassengerHome = () => {
           <span className="avail-pill green">🟢 {availableCount} available</span>
           <span className="avail-pill orange">🟡 {busyCount} on a ride</span>
           <span className="avail-pill gray">Total: {onlineDrivers.length} online</span>
-          {connected
-            ? <span className="avail-pill green">● Live</span>
-            : <span className="avail-pill gray">● Reconnecting...</span>
-          }
+          <span className={`avail-pill ${connected ? 'green' : 'gray'}`}>
+            {connected ? '● Live' : '● Reconnecting...'}
+          </span>
         </div>
       </div>
 
       <div className="tabs">
-        <button className={tab === 'book' ? 'tab active' : 'tab'} onClick={() => setTab('book')}>
-          🛺 Book
-        </button>
-        <button className={tab === 'history' ? 'tab active' : 'tab'} onClick={() => setTab('history')}>
-          📋 History
-        </button>
-        <button className={tab === 'payments' ? 'tab active' : 'tab'} onClick={() => setTab('payments')}>
-          💳 Payments
-        </button>
-        <button className={tab === 'map' ? 'tab active' : 'tab'} onClick={() => setTab('map')}>
-          🗺️ Map
-        </button>
+        <button className={tab === 'book' ? 'tab active' : 'tab'} onClick={() => setTab('book')}>🛺 Book</button>
+        <button className={tab === 'history' ? 'tab active' : 'tab'} onClick={() => setTab('history')}>📋 History</button>
+        <button className={tab === 'payments' ? 'tab active' : 'tab'} onClick={() => setTab('payments')}>💳 Payments</button>
+        <button className={tab === 'map' ? 'tab active' : 'tab'} onClick={() => setTab('map')}>🗺️ Map</button>
       </div>
 
       {tab === 'book' && (
         <div className="two-col">
           <div>
-            {hasActiveRide
-              ? <RideStatus ride={activeRide} onRideUpdate={setActiveRide} />
-              : <RequestRide onRideRequested={setActiveRide} />
-            }
-            {activeRide && !hasActiveRide && (
-              <RideStatus ride={activeRide} onRideUpdate={setActiveRide} />
+            {showRideStatus ? (
+              <>
+                <RideStatus
+                  ride={activeRide}
+                  onRideUpdate={(updatedRide) => setActiveRide(updatedRide)}
+                />
+                {/* Show New Ride button after completed/cancelled */}
+                {!isActiveRide && (
+                  <button
+                    className="btn-primary full"
+                    style={{ marginTop: 12 }}
+                    onClick={handleDismissRide}
+                  >
+                    + Book Another Ride
+                  </button>
+                )}
+              </>
+            ) : (
+              <RequestRide onRideRequested={(ride) => setActiveRide(ride)} />
             )}
           </div>
           <LiveMap
             drivers={onlineDrivers}
-            activeRide={activeRide}
+            activeRide={isActiveRide ? activeRide : null}
             driverLocation={driverLocation}
           />
         </div>
       )}
+
       {tab === 'history' && <RideHistory />}
       {tab === 'payments' && <PaymentHistory />}
       {tab === 'map' && (
         <LiveMap
           drivers={onlineDrivers}
-          activeRide={activeRide}
+          activeRide={isActiveRide ? activeRide : null}
           driverLocation={driverLocation}
         />
       )}
