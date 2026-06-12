@@ -12,6 +12,8 @@ Frontend (live application) : https://campus-ride-iota.vercel.app
 
 Backend API: https://campus-ride-backend-9n9m.onrender.com
 
+video and design document : https://drive.google.com/drive/folders/1H5b3MT7Twq8sVT5osyOLGVZdGpsP1SWO?usp=sharing
+ 
 ---
 
 ## Technology Stack
