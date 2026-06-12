@@ -10,15 +10,15 @@ import PaymentHistory from './PaymentHistory';
 import toast from 'react-hot-toast';
 
 const ACTIVE_STATUSES = ['requested', 'accepted', 'in_progress'];
-const SHOW_STATUSES = [
+  const SHOW_STATUSES = [
   'requested',
   'accepted',
   'in_progress',
   'completed',
   'cancelled'
-];
-
-const PassengerHome = () => {
+ ];
+  const [dismissedRideId, setDismissedRideId] = useState(null);
+  const PassengerHome = () => {
   const { user } = useAuth();
   const [activeRide, setActiveRide] = useState(null);
   const [driverLocation, setDriverLocation] = useState(null);
@@ -37,14 +37,27 @@ const PassengerHome = () => {
     rideAPI.getActiveRide()
       .then(res => {
         if (res.data) {
-          setActiveRide(prev => {
-            // Don't overwrite if user already dismissed rating
-            if (prev?._id === res.data._id && prev?.status === 'completed' && res.data.status === 'completed') {
-              return prev;
-            }
-            return res.data;
-          });
-        } else {
+
+          if (
+                dismissedRideId &&
+                res.data._id === dismissedRideId &&
+                ['completed', 'cancelled'].includes(res.data.status)
+              ) {
+             return;
+       }
+
+       setActiveRide(prev => {
+            if (
+      prev?._id === res.data._id &&
+      prev?.status === 'completed' &&
+      res.data.status === 'completed'
+    ) {
+      return prev;
+    }
+
+    return res.data;
+  });
+} else {
           // Only clear if there's no ride in display state
           setActiveRide(prev => {
             if (prev && ACTIVE_STATUSES.includes(prev.status)) return null;
@@ -53,7 +66,7 @@ const PassengerHome = () => {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [dismissedRideId]);
 
   // Initial load
   useEffect(() => {
@@ -141,9 +154,13 @@ const PassengerHome = () => {
 
   // Dismiss completed/cancelled ride — go back to booking
   const handleDismissRide = () => {
-    setActiveRide(null);
-    setDriverLocation(null);
-  };
+  if (activeRide?._id) {
+    setDismissedRideId(activeRide._id);
+  }
+
+  setActiveRide(null);
+  setDriverLocation(null);
+};
 
   const showRideStatus = activeRide && SHOW_STATUSES.includes(activeRide.status);
   const isActiveRide = activeRide && ACTIVE_STATUSES.includes(activeRide.status);
