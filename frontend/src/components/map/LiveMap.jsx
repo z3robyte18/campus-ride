@@ -25,7 +25,9 @@ const Recenter = ({ center }) => {
 };
 
 const LiveMap = ({ drivers = [], activeRide = null, driverLocation = null }) => {
-  const center = driverLocation ? [driverLocation.lat, driverLocation.lng] : CAMPUS_CENTER;
+  const center = driverLocation
+    ? [driverLocation.lat, driverLocation.lng]
+    : CAMPUS_CENTER;
 
   return (
     <div className="map-wrapper">
@@ -36,32 +38,47 @@ const LiveMap = ({ drivers = [], activeRide = null, driverLocation = null }) => 
         />
         {driverLocation && <Recenter center={center} />}
 
+        {/* Online drivers */}
         {drivers.map(d => (
-          <Marker key={d._id}
+          <Marker
+            key={d._id}
             position={[d.currentLocation?.lat || 29.8674, d.currentLocation?.lng || 77.8960]}
-            icon={makeIcon(d.isBusy ? 'red' : 'green')}>
+            icon={makeIcon(d.isBusy ? 'orange' : 'green')}
+          >
             <Popup>
-              <div style={{ minWidth: 140 }}>
+              <div style={{ minWidth: 150 }}>
                 <strong>{d.name}</strong><br />
                 {d.vehicleType} · {d.vehicleNumber}<br />
                 ⭐ {d.averageRating || 'New'}<br />
-                <span style={{ color: d.isBusy ? '#ef4444' : '#10b981', fontWeight: 600 }}>
-                  {d.isBusy ? '🔴 Busy' : '🟢 Available'}
+                <span style={{ color: d.isBusy ? '#f59e0b' : '#10b981', fontWeight: 600 }}>
+                  {d.isBusy ? '🟡 On a ride' : '🟢 Available'}
                 </span>
               </div>
             </Popup>
           </Marker>
         ))}
 
-        {activeRide && <>
-          <Marker position={[activeRide.pickupLocation.lat, activeRide.pickupLocation.lng]} icon={makeIcon('blue')}>
+        {/* Pickup marker */}
+        {activeRide && (
+          <Marker
+            position={[activeRide.pickupLocation.lat, activeRide.pickupLocation.lng]}
+            icon={makeIcon('blue')}
+          >
             <Popup>📍 Pickup: {activeRide.pickupLocation.name}</Popup>
           </Marker>
-          <Marker position={[activeRide.destination.lat, activeRide.destination.lng]} icon={makeIcon('red')}>
+        )}
+
+        {/* Drop point marker — separate from drivers */}
+        {activeRide && (
+          <Marker
+            position={[activeRide.destination.lat, activeRide.destination.lng]}
+            icon={makeIcon('red')}
+          >
             <Popup>🏁 Drop: {activeRide.destination.name}</Popup>
           </Marker>
-        </>}
+        )}
 
+        {/* Live driver location during ride */}
         {driverLocation && (
           <Marker position={[driverLocation.lat, driverLocation.lng]} icon={makeIcon('green')}>
             <Popup>🛺 Driver is here</Popup>
@@ -69,10 +86,12 @@ const LiveMap = ({ drivers = [], activeRide = null, driverLocation = null }) => 
         )}
       </MapContainer>
 
+      {/* Fixed legend — correct labels */}
       <div className="map-legend">
-        <span><span className="legend-dot green" />Available driver</span>
-        <span><span className="legend-dot red" />Busy driver</span>
-        <span><span className="legend-dot blue" />Pickup point</span>
+        <span><span className="legend-dot" style={{ background: '#10b981' }} /> Available driver</span>
+        <span><span className="legend-dot" style={{ background: '#f59e0b' }} /> Driver on ride</span>
+        <span><span className="legend-dot" style={{ background: '#3b82f6' }} /> Pickup point</span>
+        <span><span className="legend-dot" style={{ background: '#ef4444' }} /> Drop point</span>
       </div>
     </div>
   );

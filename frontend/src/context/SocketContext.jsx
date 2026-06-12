@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
 const SocketContext = createContext();
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 export const SocketProvider = ({ children }) => {
   const { user } = useAuth();
@@ -10,29 +11,50 @@ export const SocketProvider = ({ children }) => {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      socketRef.current = io('https://campus-ride-backend-9n9m.onrender.com', { transports: ['websocket'] });
-      socketRef.current.on('connect', () => {
-        setConnected(true);
-        socketRef.current.emit('register', user._id);
-      });
-      socketRef.current.on('disconnect', () => setConnected(false));
-    }
+    if (!user) return;
+
+    const socket = io(BACKEND_URL, {
+      transports: ['websocket', 'polling'],
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+    });
+
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      setConnected(true);
+      // Re-register on every connect/reconnect so server always knows this user's socket
+      socket.emit('register', user._id);
+    });
+
+    socket.on('disconnect', () => {
+      setConnected(false);
+    });
+
+    socket.on('reconnect', () => {
+      setConnected(true);
+      socket.emit('register', user._id);
+    });
+
     return () => {
-      if (socketRef.current) socketRef.current.disconnect();
+      socket.disconnect();
+      socketRef.current = null;
     };
   }, [user]);
 
   const emit = (event, data) => {
-    if (socketRef.current) socketRef.current.emit(event, data);
+    if (socketRef.current?.connected) socketRef.current.emit(event, data);
   };
 
   const on = (event, callback) => {
     if (socketRef.current) socketRef.current.on(event, callback);
   };
 
-  const off = (event) => {
-    if (socketRef.current) socketRef.current.off(event);
+  const off = (event, callback) => {
+    if (socketRef.current) socketRef.current.off(event, callback);
   };
 
   return (
