@@ -7,7 +7,7 @@ Campus Ride is a full-stack ride management platform designed for campus transpo
 The platform leverages real-time communication using Socket.IO, interactive maps for location visualization, and secure authentication to deliver a modern ride-hailing experience tailored for educational campuses such as IIT Roorkee.
 
 ### Live Links
-Frontend: https://campus-ride-iota.vercel.app
+Frontend (live application) : https://campus-ride-iota.vercel.app
 
 
 Backend API: https://campus-ride-backend-9n9m.onrender.com
