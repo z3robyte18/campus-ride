@@ -199,59 +199,6 @@ const [isScheduled, setIsScheduled] = useState(false);
             </button>
           </div>
         </div>
-        <div className="form-group">
-  <label>📅 Ride Type</label>
-
-  <div className="payment-method-toggle">
-    <button
-      type="button"
-      className={`method-toggle-btn ${!isScheduled ? 'active' : ''}`}
-      onClick={() => setIsScheduled(false)}
-    >
-      Ride Now
-    </button>
-
-    <button
-      type="button"
-      className={`method-toggle-btn ${isScheduled ? 'active' : ''}`}
-      onClick={() => setIsScheduled(true)}
-    >
-      Schedule Ride
-    </button>
-  </div>
-</div>
-
-{isScheduled && (
-  <>
-    <div className="form-group">
-      <label>📅 Select Date</label>
-
-      <input
-        type="date"
-        value={scheduleDate}
-        min={new Date().toISOString().split('T')[0]}
-        onChange={(e) => setScheduleDate(e.target.value)}
-      />
-    </div>
-
-    <div className="form-group">
-      <label>⏰ Select Time</label>
-
-      <select
-        value={scheduleTime}
-        onChange={(e) => setScheduleTime(e.target.value)}
-      >
-        <option value="">Choose Time Slot</option>
-
-        {timeSlots.map(slot => (
-          <option key={slot} value={slot}>
-            {slot}
-          </option>
-        ))}
-      </select>
-    </div>
-  </>
-)}
 
         <button type="submit" className="btn-primary full"
           disabled={loading || availableCount === 0}>
@@ -259,9 +206,7 @@ const [isScheduled, setIsScheduled] = useState(false);
             ? 'Finding driver...'
             : availableCount === 0
               ? 'No drivers available'
-              : isScheduled
-  ? 'Schedule Ride 📅'
-  : 'Request Ride 🛺'}
+              :'Request Ride 🛺'}
         </button>
       </form>
     </div>
