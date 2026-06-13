@@ -114,8 +114,15 @@ const ScheduleRide = () => {
               </div>
               <div className="form-group">
                 <label>Time</label>
-                <input type="time" required
-                  value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} />
+                <input
+  type="time"
+  required
+  step="60"
+  value={form.time}
+  onChange={(e) =>
+    setForm({ ...form, time: e.target.value })
+  }
+/>
               </div>
             </div>
             <div className="form-group">
